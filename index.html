@@ -120,6 +120,10 @@ Jika datang telat, jam pulang menyesuaikan
 <div class="result" id="result"></div>
 <div class="countdown" id="countdown"></div>
 
+<button id="calendarBtn" style="display:none;">
+Tambah ke Google Calendar
+</button>
+
 </div>
 
 <script>
@@ -187,13 +191,17 @@ function startCountdown(){
   },1000);
 }
 
+/* FORMAT GOOGLE DATE */
+function formatGoogleDate(date){
+  return date.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
+}
+
 /* CALCULATE */
 function calculate(){
 
   const start=getWIB();
   start.setHours(hour.value,minute.value,0);
 
-  // FIXED DURATION 8 JAM 30 MENIT
   let end=new Date(start.getTime() + (8.5*60*60*1000));
 
   targetEndTime=end;
@@ -202,6 +210,18 @@ function calculate(){
   document.getElementById("result").innerHTML=
     "Jam pulang kantor "+
     end.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'});
+
+  // ===== GOOGLE CALENDAR =====
+  let url=
+  `https://calendar.google.com/calendar/render?action=TEMPLATE`+
+  `&text=Jam Pulang Kantor`+
+  `&dates=${formatGoogleDate(start)}/${formatGoogleDate(end)}`+
+  `&details=Jam kerja harian`+
+  `&ctz=Asia/Jakarta`;
+
+  const btn=document.getElementById("calendarBtn");
+  btn.style.display="block";
+  btn.onclick=()=>window.open(url,"_blank");
 }
 
 </script>
