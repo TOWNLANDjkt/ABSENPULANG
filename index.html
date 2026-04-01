@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Jam Pulang Kantor</title>
+
+<style>
+
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#eef2f6;
+  font-family:Arial, sans-serif;
+}
+
+.card{
+  background:white;
+  padding:40px;
+  border-radius:18px;
+  box-shadow:0 15px 40px rgba(0,0,0,0.12);
+  text-align:center;
+  width:420px;
+}
+
+.nowTime{
+  font-size:20px;
+  font-weight:bold;
+}
+
+.nowDate{
+  font-size:13px;
+  color:#777;
+  margin-bottom:10px;
+}
+
+.row{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+}
+
+.small-select{
+  width:90px;
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #ddd;
+}
+
+button{
+  width:100%;
+  padding:14px;
+  margin-top:15px;
+  border-radius:10px;
+  border:none;
+  font-size:16px;
+  background:#2c7be5;
+  color:white;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+.small-btn{
+  font-size:12px;
+  padding:6px 10px;
+  background:#e3e8ef;
+  color:#333;
+  margin-bottom:10px;
+}
+
+.result{
+  margin-top:20px;
+  font-size:22px;
+  font-weight:bold;
+}
+
+.countdown{
+  margin-top:10px;
+  font-size:18px;
+  color:#2c7be5;
+  font-weight:bold;
+}
+
+.info{
+  font-size:13px;
+  margin-bottom:15px;
+  color:#555;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>🏢 Jam Pulang Kantor</h2>
+
+<div class="info">
+Jam kerja normal: <b>08:30 – 17:00</b><br>
+Jika datang telat, jam pulang menyesuaikan
+</div>
+
+<div class="nowTime" id="currentTime"></div>
+<div class="nowDate" id="currentDate"></div>
+
+<button class="small-btn" onclick="applyNowTime()">Gunakan Jam Sekarang</button>
+
+<div class="row">
+<select id="hour" class="small-select"></select>
+<select id="minute" class="small-select"></select>
+</div>
+
+<button onclick="calculate()">Hitung Jam Pulang</button>
+
+<div class="result" id="result"></div>
+<div class="countdown" id="countdown"></div>
+
+</div>
+
+<script>
+
+let targetEndTime=null;
+let interval=null;
+
+function getWIB(){
+  return new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Jakarta"}));
+}
+
+/* CLOCK */
+function updateClock(){
+  const now=getWIB();
+  document.getElementById("currentTime").innerText=now.toLocaleTimeString("id-ID");
+  document.getElementById("currentDate").innerText=
+    now.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+}
+setInterval(updateClock,1000);
+updateClock();
+
+/* DROPDOWN */
+const hour=document.getElementById("hour");
+for(let i=1;i<=24;i++){
+  let v=String(i).padStart(2,'0');
+  hour.add(new Option(v,v));
+}
+hour.value="08";
+
+const minute=document.getElementById("minute");
+for(let i=0;i<60;i++){
+  let v=String(i).padStart(2,'0');
+  minute.add(new Option(v,v));
+}
+minute.value="30";
+
+/* APPLY NOW */
+function applyNowTime(){
+  const now=getWIB();
+  hour.value=String(now.getHours()).padStart(2,'0');
+  minute.value=String(now.getMinutes()).padStart(2,'0');
+}
+
+/* COUNTDOWN */
+function startCountdown(){
+
+  clearInterval(interval);
+
+  interval=setInterval(()=>{
+    const now=getWIB();
+    let diff=targetEndTime-now;
+
+    if(diff<=0){
+      document.getElementById("countdown").innerHTML="🟢 Sudah boleh pulang!";
+      return;
+    }
+
+    let s=Math.floor(diff/1000);
+    let h=Math.floor(s/3600);
+    let m=Math.floor((s%3600)/60);
+    let sec=s%60;
+
+    document.getElementById("countdown").innerHTML=
+      `⏳ Pulang dalam ${h}j ${m}m ${sec}d`;
+  },1000);
+}
+
+/* CALCULATE */
+function calculate(){
+
+  const start=getWIB();
+  start.setHours(hour.value,minute.value,0);
+
+  // FIXED DURATION 8 JAM 30 MENIT
+  let end=new Date(start.getTime() + (8.5*60*60*1000));
+
+  targetEndTime=end;
+  startCountdown();
+
+  document.getElementById("result").innerHTML=
+    "Jam pulang kantor "+
+    end.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'});
+}
+
+</script>
+
+</body>
+</html>
