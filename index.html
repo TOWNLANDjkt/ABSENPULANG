@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jam Pulang Kantor</title>
+<title>Task dan Jam Pulang Kantor</title>
 
 <style>
 body{
@@ -18,16 +18,51 @@ body{
 
 .card{
   background:white;
-  padding:25px;
+  padding:30px;
   border-radius:18px;
   width:460px;
   box-shadow:0 10px 30px rgba(0,0,0,0.1);
+  text-align:center;
 }
 
-.nowTime{font-weight:bold;font-size:18px;}
-.nowDate{font-size:12px;color:#777;margin-bottom:10px;}
+h2{
+  margin:0;
+}
 
-.row{display:flex;gap:6px;justify-content:center;}
+.subtitle{
+  font-size:12px;
+  color:#777;
+  margin-bottom:10px;
+}
+
+.nowTime{
+  font-size:20px;
+  font-weight:bold;
+}
+
+.nowDate{
+  font-size:13px;
+  color:#777;
+  margin-bottom:10px;
+}
+
+/* 🔥 FIXED BUTTON */
+.small-btn{
+  font-size:12px;
+  padding:6px 10px;
+  background:#2c7be5;
+  color:white;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  margin-bottom:10px;
+}
+
+.row{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+}
 
 select{
   padding:8px;
@@ -60,6 +95,7 @@ button{
   align-items:center;
   gap:8px;
   padding:6px;
+  text-align:left;
 }
 
 .result{
@@ -71,7 +107,6 @@ button{
   margin-top:5px;
   color:#2c7be5;
 }
-
 </style>
 </head>
 
@@ -79,10 +114,13 @@ button{
 
 <div class="card">
 
-<h3>🏢 Jam Pulang Kantor</h3>
+<h2>Task dan Jam Pulang Kantor</h2>
+<div class="subtitle">TOWNLANDJKT</div>
 
 <div class="nowTime" id="currentTime"></div>
 <div class="nowDate" id="currentDate"></div>
+
+<button class="small-btn" onclick="applyNowTime()">⏰ Gunakan Jam Sekarang</button>
 
 <div class="row">
 <select id="hour"></select>
@@ -106,13 +144,23 @@ button{
 
 let todos=[];
 let endTime=null;
+let startTime=null;
 
 /* ===== CLOCK ===== */
-setInterval(()=>{
+function updateClock(){
   let now=new Date();
+
   currentTime.innerText=now.toLocaleTimeString("id-ID");
-  currentDate.innerText=now.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-},1000);
+
+  currentDate.innerText=now.toLocaleDateString("id-ID",{
+    weekday:"long",
+    day:"numeric",
+    month:"long",
+    year:"numeric"
+  });
+}
+setInterval(updateClock,1000);
+updateClock();
 
 /* ===== DROPDOWN ===== */
 for(let i=1;i<=24;i++){
@@ -124,6 +172,13 @@ for(let i=0;i<60;i++){
   minute.add(new Option(String(i).padStart(2,'0'),i));
 }
 minute.value=30;
+
+/* ===== APPLY NOW ===== */
+function applyNowTime(){
+  let now=new Date();
+  hour.value=now.getHours();
+  minute.value=now.getMinutes();
+}
 
 /* ===== STORAGE ===== */
 function todayKey(){
@@ -149,7 +204,7 @@ function render(){
     let cb=document.createElement("input");
     cb.type="checkbox";
     cb.onchange=()=>{
-      todos.splice(i,1); // langsung hilang
+      todos.splice(i,1);
       save();
       render();
     };
@@ -206,25 +261,28 @@ function calculate(){
   let start=new Date();
   start.setHours(hour.value,minute.value,0);
 
-  let end=new Date(start.getTime()+8.5*60*60*1000);
+  startTime=start;
 
+  let end=new Date(start.getTime()+8.5*60*60*1000);
   endTime=end;
 
   result.innerText="Jam pulang kantor "+
     end.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'});
 
-  // ===== TODO =====
-  let text="Hari ini mau ngerjain:\n- "+todos.map(t=>t.text).join("\n- ");
-
-  // ===== GOOGLE CALENDAR =====
-  let url=`https://calendar.google.com/calendar/render?action=TEMPLATE`+
-  `&text=Jam Pulang Kantor`+
-  `&dates=${formatGoogleDate(start)}/${formatGoogleDate(end)}`+
-  `&details=${encodeURIComponent(text)}`+
-  `&ctz=Asia/Jakarta`;
-
   calendarBtn.style.display="block";
-  calendarBtn.onclick=()=>window.open(url,"_blank");
+
+  calendarBtn.onclick=()=>{
+
+    let text="Hari ini mau ngerjain:\n- "+todos.map(t=>t.text).join("\n- ");
+
+    let url=`https://calendar.google.com/calendar/render?action=TEMPLATE`+
+    `&text=Jam Pulang Kantor`+
+    `&dates=${formatGoogleDate(startTime)}/${formatGoogleDate(endTime)}`+
+    `&details=${encodeURIComponent(text)}`+
+    `&ctz=Asia/Jakarta`;
+
+    window.open(url,"_blank");
+  };
 }
 
 /* ===== INIT ===== */
