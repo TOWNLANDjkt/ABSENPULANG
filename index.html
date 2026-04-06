@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Jam Pulang Kantor TownlandJKT</title>
+<title>Jam Pulang Kantor</title>
 
 <style>
 
@@ -20,29 +19,16 @@ body{
 
 .card{
   background:white;
-  padding:40px;
+  padding:30px;
   border-radius:18px;
   box-shadow:0 15px 40px rgba(0,0,0,0.12);
-  text-align:center;
-  width:420px;
+  width:480px;
 }
 
-.nowTime{
-  font-size:20px;
-  font-weight:bold;
-}
+.nowTime{font-size:20px;font-weight:bold;}
+.nowDate{font-size:13px;color:#777;margin-bottom:10px;}
 
-.nowDate{
-  font-size:13px;
-  color:#777;
-  margin-bottom:10px;
-}
-
-.row{
-  display:flex;
-  justify-content:center;
-  gap:8px;
-}
+.row{display:flex;gap:8px;justify-content:center;}
 
 .small-select{
   width:90px;
@@ -51,44 +37,69 @@ body{
   border:1px solid #ddd;
 }
 
+textarea{
+  width:100%;
+  height:70px;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #ddd;
+  resize:none;
+}
+
 button{
   width:100%;
-  padding:14px;
-  margin-top:15px;
-  border-radius:10px;
+  padding:12px;
+  margin-top:10px;
   border:none;
-  font-size:16px;
+  border-radius:10px;
   background:#2c7be5;
   color:white;
-  cursor:pointer;
   font-weight:bold;
+  cursor:pointer;
 }
 
 .small-btn{
   font-size:12px;
-  padding:6px 10px;
   background:#e3e8ef;
   color:#333;
-  margin-bottom:10px;
 }
 
-.result{
-  margin-top:20px;
-  font-size:22px;
-  font-weight:bold;
-}
+.result{margin-top:15px;font-weight:bold;}
+.countdown{margin-top:5px;color:#2c7be5;}
 
-.countdown{
+.todo-list{
   margin-top:10px;
-  font-size:18px;
-  color:#2c7be5;
-  font-weight:bold;
+  text-align:left;
 }
 
-.info{
-  font-size:13px;
-  margin-bottom:15px;
+.todo-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  margin-bottom:5px;
+}
+
+.done{
+  text-decoration:line-through;
+  color:#888;
+}
+
+.history{
+  margin-top:15px;
+  font-size:12px;
   color:#555;
+  max-height:80px;
+  overflow:auto;
+}
+
+.history div{
+  cursor:pointer;
+  padding:3px;
+}
+
+.history div:hover{
+  background:#f0f0f0;
 }
 
 </style>
@@ -98,12 +109,7 @@ button{
 
 <div class="card">
 
-<h2>🏢 Jam Pulang Kantor TownlandJKT</h2>
-
-<div class="info">
-Jam kerja normal: <b>08:30 – 17:00</b><br>
-Jika datang telat, jam pulang menyesuaikan
-</div>
+<h3>🏢 Jam Pulang Kantor</h3>
 
 <div class="nowTime" id="currentTime"></div>
 <div class="nowDate" id="currentDate"></div>
@@ -115,19 +121,24 @@ Jika datang telat, jam pulang menyesuaikan
 <select id="minute" class="small-select"></select>
 </div>
 
+<textarea id="todoInput" placeholder="Tulis task... (enter untuk tambah)"></textarea>
+
+<div class="todo-list" id="todoList"></div>
+
 <button onclick="calculate()">Hitung Jam Pulang</button>
 
 <div class="result" id="result"></div>
 <div class="countdown" id="countdown"></div>
 
-<button id="calendarBtn" style="display:none;">
-Tambah ke Google Calendar
-</button>
+<button id="calendarBtn" style="display:none;">Tambah ke Google Calendar</button>
+
+<div class="history" id="history"></div>
 
 </div>
 
 <script>
 
+let todos=[];
 let targetEndTime=null;
 let interval=null;
 
@@ -135,25 +146,25 @@ function getWIB(){
   return new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Jakarta"}));
 }
 
+function todayKey(){
+  return new Date().toISOString().slice(0,10);
+}
+
 /* CLOCK */
 function updateClock(){
   const now=getWIB();
-  document.getElementById("currentTime").innerText=now.toLocaleTimeString("id-ID");
-  document.getElementById("currentDate").innerText=
-    now.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  currentTime.innerText=now.toLocaleTimeString("id-ID");
+  currentDate.innerText=now.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long"});
 }
-setInterval(updateClock,1000);
-updateClock();
+setInterval(updateClock,1000); updateClock();
 
 /* DROPDOWN */
-const hour=document.getElementById("hour");
 for(let i=1;i<=24;i++){
   let v=String(i).padStart(2,'0');
   hour.add(new Option(v,v));
 }
 hour.value="08";
 
-const minute=document.getElementById("minute");
 for(let i=0;i<60;i++){
   let v=String(i).padStart(2,'0');
   minute.add(new Option(v,v));
@@ -167,33 +178,73 @@ function applyNowTime(){
   minute.value=String(now.getMinutes()).padStart(2,'0');
 }
 
-/* COUNTDOWN */
-function startCountdown(){
+/* TODO SYSTEM */
+function renderTodos(){
+  todoList.innerHTML="";
+  todos.forEach((t,i)=>{
+    let div=document.createElement("div");
+    div.className="todo-item";
 
-  clearInterval(interval);
+    let cb=document.createElement("input");
+    cb.type="checkbox";
+    cb.checked=t.done;
+    cb.onchange=()=>{t.done=!t.done;saveTodos();renderTodos();};
 
-  interval=setInterval(()=>{
-    const now=getWIB();
-    let diff=targetEndTime-now;
+    let span=document.createElement("span");
+    span.innerText=t.text;
+    if(t.done) span.classList.add("done");
 
-    if(diff<=0){
-      document.getElementById("countdown").innerHTML="🟢 Sudah boleh pulang!";
-      return;
-    }
-
-    let s=Math.floor(diff/1000);
-    let h=Math.floor(s/3600);
-    let m=Math.floor((s%3600)/60);
-    let sec=s%60;
-
-    document.getElementById("countdown").innerHTML=
-      `⏳ Pulang dalam ${h}j ${m}m ${sec}d`;
-  },1000);
+    div.append(cb,span);
+    todoList.appendChild(div);
+  });
 }
 
-/* FORMAT GOOGLE DATE */
-function formatGoogleDate(date){
-  return date.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
+function saveTodos(){
+  localStorage.setItem(todayKey(),JSON.stringify(todos));
+  updateHistory();
+}
+
+function loadTodos(key=todayKey()){
+  todos=JSON.parse(localStorage.getItem(key)||"[]");
+  renderTodos();
+}
+
+/* INPUT ENTER */
+todoInput.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    if(todoInput.value.trim()){
+      todos.push({text:todoInput.value,done:false});
+      todoInput.value="";
+      saveTodos();
+      renderTodos();
+    }
+  }
+});
+
+/* HISTORY */
+function updateHistory(){
+  history.innerHTML="<b>History:</b>";
+  Object.keys(localStorage).sort().reverse().forEach(k=>{
+    let div=document.createElement("div");
+    div.innerText=k;
+    div.onclick=()=>loadTodos(k);
+    history.appendChild(div);
+  });
+}
+
+/* COUNTDOWN */
+function startCountdown(){
+  clearInterval(interval);
+  interval=setInterval(()=>{
+    let diff=targetEndTime-getWIB();
+    if(diff<=0){
+      countdown.innerHTML="🟢 Pulang!";
+      return;
+    }
+    let s=Math.floor(diff/1000);
+    countdown.innerHTML=`⏳ ${Math.floor(s/3600)}j ${Math.floor(s%3600/60)}m ${s%60}d`;
+  },1000);
 }
 
 /* CALCULATE */
@@ -202,27 +253,27 @@ function calculate(){
   const start=getWIB();
   start.setHours(hour.value,minute.value,0);
 
-  let end=new Date(start.getTime() + (8.5*60*60*1000));
-
+  let end=new Date(start.getTime()+8.5*60*60*1000);
   targetEndTime=end;
   startCountdown();
 
-  document.getElementById("result").innerHTML=
-    "Jam pulang kantor "+
-    end.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'});
+  result.innerHTML="Pulang: "+end.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'});
 
-  // ===== GOOGLE CALENDAR =====
-  let url=
-  `https://calendar.google.com/calendar/render?action=TEMPLATE`+
+  // TODO → Calendar
+  let text="Hari ini mau ngerjain:\n- "+todos.map(t=>t.text).join("\n- ");
+
+  let url=`https://calendar.google.com/calendar/render?action=TEMPLATE`+
   `&text=Jam Pulang Kantor`+
-  `&dates=${formatGoogleDate(start)}/${formatGoogleDate(end)}`+
-  `&details=Jam kerja harian`+
-  `&ctz=Asia/Jakarta`;
+  `&dates=${end.toISOString().replace(/[-:]/g,"").split(".")[0]}/${end.toISOString().replace(/[-:]/g,"").split(".")[0]}`+
+  `&details=${encodeURIComponent(text)}`;
 
-  const btn=document.getElementById("calendarBtn");
-  btn.style.display="block";
-  btn.onclick=()=>window.open(url,"_blank");
+  calendarBtn.style.display="block";
+  calendarBtn.onclick=()=>window.open(url);
 }
+
+/* INIT */
+loadTodos();
+updateHistory();
 
 </script>
 
