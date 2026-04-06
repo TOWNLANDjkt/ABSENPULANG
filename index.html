@@ -14,92 +14,84 @@ body{
   justify-content:center;
   align-items:center;
   background:#eef2f6;
-  font-family:Arial, sans-serif;
+  font-family:Arial;
 }
 
 .card{
   background:white;
-  padding:30px;
+  padding:25px;
   border-radius:18px;
-  box-shadow:0 15px 40px rgba(0,0,0,0.12);
   width:480px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.1);
 }
 
-.nowTime{font-size:20px;font-weight:bold;}
-.nowDate{font-size:13px;color:#777;margin-bottom:10px;}
+.nowTime{font-weight:bold;font-size:18px;}
+.nowDate{font-size:12px;color:#777;margin-bottom:8px;}
 
-.row{display:flex;gap:8px;justify-content:center;}
+.row{display:flex;gap:6px;justify-content:center;}
 
-.small-select{
-  width:90px;
-  padding:10px;
+select{
+  padding:8px;
   border-radius:8px;
   border:1px solid #ddd;
 }
 
 textarea{
   width:100%;
-  height:70px;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid #ddd;
-  resize:none;
+  height:60px;
+  margin-top:8px;
+  border-radius:8px;
+  padding:8px;
 }
 
 button{
   width:100%;
-  padding:12px;
-  margin-top:10px;
+  margin-top:8px;
+  padding:10px;
   border:none;
-  border-radius:10px;
+  border-radius:8px;
   background:#2c7be5;
   color:white;
-  font-weight:bold;
   cursor:pointer;
-}
-
-.small-btn{
-  font-size:12px;
-  background:#e3e8ef;
-  color:#333;
-}
-
-.result{margin-top:15px;font-weight:bold;}
-.countdown{margin-top:5px;color:#2c7be5;}
-
-.todo-list{
-  margin-top:10px;
-  text-align:left;
 }
 
 .todo-item{
   display:flex;
   align-items:center;
   gap:8px;
-  font-size:14px;
-  margin-bottom:5px;
+  padding:6px;
+  border-radius:6px;
+  cursor:grab;
+}
+
+.todo-item.dragging{
+  opacity:0.5;
 }
 
 .done{
   text-decoration:line-through;
-  color:#888;
+  color:#aaa;
+}
+
+.progress{
+  margin-top:10px;
+  height:8px;
+  background:#ddd;
+  border-radius:5px;
+  overflow:hidden;
+}
+
+.progress-bar{
+  height:100%;
+  background:#2c7be5;
+  width:0%;
 }
 
 .history{
-  margin-top:15px;
+  margin-top:10px;
   font-size:12px;
-  color:#555;
   max-height:80px;
   overflow:auto;
-}
-
-.history div{
-  cursor:pointer;
-  padding:3px;
-}
-
-.history div:hover{
-  background:#f0f0f0;
 }
 
 </style>
@@ -114,23 +106,23 @@ button{
 <div class="nowTime" id="currentTime"></div>
 <div class="nowDate" id="currentDate"></div>
 
-<button class="small-btn" onclick="applyNowTime()">Gunakan Jam Sekarang</button>
-
 <div class="row">
-<select id="hour" class="small-select"></select>
-<select id="minute" class="small-select"></select>
+<select id="hour"></select>
+<select id="minute"></select>
 </div>
 
-<textarea id="todoInput" placeholder="Tulis task... (enter untuk tambah)"></textarea>
+<textarea id="todoInput" placeholder="Enter untuk tambah task"></textarea>
 
-<div class="todo-list" id="todoList"></div>
+<div id="todoList"></div>
+
+<div class="progress"><div id="progressBar" class="progress-bar"></div></div>
 
 <button onclick="calculate()">Hitung Jam Pulang</button>
 
-<div class="result" id="result"></div>
-<div class="countdown" id="countdown"></div>
+<div id="result"></div>
+<div id="countdown"></div>
 
-<button id="calendarBtn" style="display:none;">Tambah ke Google Calendar</button>
+<button id="calendarBtn" style="display:none;">Tambah ke Calendar</button>
 
 <div class="history" id="history"></div>
 
@@ -139,56 +131,62 @@ button{
 <script>
 
 let todos=[];
-let targetEndTime=null;
-let interval=null;
+let dragIndex=null;
 
-function getWIB(){
-  return new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Jakarta"}));
-}
-
-function todayKey(){
+function getToday(){
   return new Date().toISOString().slice(0,10);
 }
 
 /* CLOCK */
-function updateClock(){
-  const now=getWIB();
-  currentTime.innerText=now.toLocaleTimeString("id-ID");
-  currentDate.innerText=now.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long"});
-}
-setInterval(updateClock,1000); updateClock();
+setInterval(()=>{
+  let now=new Date();
+  currentTime.innerText=now.toLocaleTimeString();
+  currentDate.innerText=now.toDateString();
+},1000);
 
 /* DROPDOWN */
 for(let i=1;i<=24;i++){
-  let v=String(i).padStart(2,'0');
-  hour.add(new Option(v,v));
+  hour.add(new Option(i,i));
 }
-hour.value="08";
+hour.value=8;
 
 for(let i=0;i<60;i++){
-  let v=String(i).padStart(2,'0');
-  minute.add(new Option(v,v));
-}
-minute.value="30";
-
-/* APPLY NOW */
-function applyNowTime(){
-  const now=getWIB();
-  hour.value=String(now.getHours()).padStart(2,'0');
-  minute.value=String(now.getMinutes()).padStart(2,'0');
+  minute.add(new Option(i,i));
 }
 
-/* TODO SYSTEM */
-function renderTodos(){
+/* LOAD */
+function load(){
+  todos=JSON.parse(localStorage.getItem(getToday())||"[]");
+  render();
+}
+
+/* SAVE */
+function save(){
+  localStorage.setItem(getToday(),JSON.stringify(todos));
+  updateHistory();
+}
+
+/* RENDER */
+function render(){
   todoList.innerHTML="";
   todos.forEach((t,i)=>{
     let div=document.createElement("div");
     div.className="todo-item";
+    div.draggable=true;
+
+    div.ondragstart=()=>dragIndex=i;
+    div.ondrop=()=>{
+      let temp=todos[i];
+      todos[i]=todos[dragIndex];
+      todos[dragIndex]=temp;
+      save();render();
+    };
+    div.ondragover=(e)=>e.preventDefault();
 
     let cb=document.createElement("input");
     cb.type="checkbox";
     cb.checked=t.done;
-    cb.onchange=()=>{t.done=!t.done;saveTodos();renderTodos();};
+    cb.onchange=()=>{t.done=!t.done;save();render();};
 
     let span=document.createElement("span");
     span.innerText=t.text;
@@ -197,74 +195,66 @@ function renderTodos(){
     div.append(cb,span);
     todoList.appendChild(div);
   });
+
+  updateProgress();
 }
 
-function saveTodos(){
-  localStorage.setItem(todayKey(),JSON.stringify(todos));
-  updateHistory();
+/* PROGRESS */
+function updateProgress(){
+  if(todos.length===0){progressBar.style.width="0%";return;}
+  let done=todos.filter(t=>t.done).length;
+  progressBar.style.width=(done/todos.length*100)+"%";
 }
 
-function loadTodos(key=todayKey()){
-  todos=JSON.parse(localStorage.getItem(key)||"[]");
-  renderTodos();
-}
-
-/* INPUT ENTER */
+/* INPUT */
 todoInput.addEventListener("keydown",e=>{
   if(e.key==="Enter"){
     e.preventDefault();
-    if(todoInput.value.trim()){
+    if(todoInput.value){
       todos.push({text:todoInput.value,done:false});
       todoInput.value="";
-      saveTodos();
-      renderTodos();
+      save();render();
     }
   }
 });
 
 /* HISTORY */
 function updateHistory(){
-  history.innerHTML="<b>History:</b>";
-  Object.keys(localStorage).sort().reverse().forEach(k=>{
+  history.innerHTML="<b>History</b><br>";
+  Object.keys(localStorage).forEach(k=>{
     let div=document.createElement("div");
     div.innerText=k;
-    div.onclick=()=>loadTodos(k);
+    div.onclick=()=>{
+      todos=JSON.parse(localStorage.getItem(k));
+      render();
+    };
     history.appendChild(div);
   });
 }
 
 /* COUNTDOWN */
-function startCountdown(){
-  clearInterval(interval);
-  interval=setInterval(()=>{
-    let diff=targetEndTime-getWIB();
-    if(diff<=0){
-      countdown.innerHTML="🟢 Pulang!";
-      return;
-    }
-    let s=Math.floor(diff/1000);
-    countdown.innerHTML=`⏳ ${Math.floor(s/3600)}j ${Math.floor(s%3600/60)}m ${s%60}d`;
-  },1000);
-}
+let endTime=null;
+setInterval(()=>{
+  if(!endTime)return;
+  let diff=endTime-new Date();
+  if(diff<=0){countdown.innerText="🟢 Pulang!";return;}
+  let s=Math.floor(diff/1000);
+  countdown.innerText=`⏳ ${Math.floor(s/3600)}j ${Math.floor(s%3600/60)}m ${s%60}s`;
+},1000);
 
 /* CALCULATE */
 function calculate(){
+  let start=new Date();
+  start.setHours(hour.value,minute.value);
 
-  const start=getWIB();
-  start.setHours(hour.value,minute.value,0);
+  endTime=new Date(start.getTime()+8.5*60*60*1000);
 
-  let end=new Date(start.getTime()+8.5*60*60*1000);
-  targetEndTime=end;
-  startCountdown();
+  result.innerText="Pulang: "+endTime.toLocaleTimeString();
 
-  result.innerHTML="Pulang: "+end.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'});
-
-  // TODO → Calendar
-  let text="Hari ini mau ngerjain:\n- "+todos.map(t=>t.text).join("\n- ");
+  let text="Hari ini:\n- "+todos.map(t=>t.text).join("\n- ");
 
   let url=`https://calendar.google.com/calendar/render?action=TEMPLATE`+
-  `&text=Jam Pulang Kantor`+
-  `&dates=${end.toISOString().replace(/[-:]/g,"").split(".")[0]}/${end.toISOString().replace(/[-:]/g,"").split(".")[0]}`+
+  `&text=Jam Pulang`+
   `&details=${encodeURIComponent(text)}`;
 
   calendarBtn.style.display="block";
@@ -272,10 +262,9 @@ function calculate(){
 }
 
 /* INIT */
-loadTodos();
+load();
 updateHistory();
 
 </script>
-
 </body>
 </html>
